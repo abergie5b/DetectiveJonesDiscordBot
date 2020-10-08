@@ -67,10 +67,8 @@ void KaliDiscordBot::onMessage(SleepyDiscord::Message message) {
 		}
 
 		parameters.pop();
-		if (
-			parameters.size() <
-			foundCommand->second.params.size()
-			) {
+		if (parameters.size() < foundCommand->second.params.size())
+		{
 			sendMessage(message.channelID, "What?", SleepyDiscord::Async);
 			return;
 		}
@@ -90,6 +88,8 @@ rapidjson::Document KaliDiscordBot::getTriviaServerResponse(std::string js)
 	header.push_back({ "Content-Length", std::to_string(js.length()) });
 	session.setHeader(header);
 	SleepyDiscord::Response response = session.request(SleepyDiscord::Post);
+	if (response.statusCode == 0) // curl -> url not found
+		response.text = "{\"response\": \"Trivia server is not running\"}";
 	return getTriviaResponseJS(response);
 }
 
@@ -106,6 +106,14 @@ rapidjson::Document KaliDiscordBot::getTriviaCategories(std::string source)
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"categories", "\"" + source + "\""}
+	});
+	return getTriviaServerResponse(js);
+}
+
+rapidjson::Document KaliDiscordBot::getTriviaAllScores()
+{
+	std::string js = SleepyDiscord::json::createJSON({
+		{"scores", "\"True\""}
 	});
 	return getTriviaServerResponse(js);
 }
@@ -371,7 +379,7 @@ void addCommands()
 		});
 	}
 
-	for (std::string s: {"!s", "!scores"})
+	for (std::string s: {"!s", "!score"})
 	{
 		KaliCommand::addCommand({
 			s, "displays trivia high scores", {}, [](
@@ -435,6 +443,19 @@ void addCommands()
 			else
 				source = params.front();
 			rapidjson::Document doc = client.getTriviaCategories(source);
+			rapidjson::Value& msg = doc["response"];
+			client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString()), SleepyDiscord::Async);
+		}
+	});
+
+	KaliCommand::addCommand({
+		"!scores", "displays all trivia scores", {"source"}, [](
+			KaliDiscordBot& client,
+			SleepyDiscord::Message& message,
+			std::queue<std::string>& params
+		) {
+			// pop the ! command
+			rapidjson::Document doc = client.getTriviaAllScores();
 			rapidjson::Value& msg = doc["response"];
 			client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString()), SleepyDiscord::Async);
 		}

@@ -20,6 +20,7 @@ public:
 	rapidjson::Document setTriviaDifficulty(std::string difficulty);
 	rapidjson::Document getTriviaGiveUpResponse();
 	rapidjson::Document getCurrentTriviaQuestion();
+	rapidjson::Document getTriviaAllScores();
 	rapidjson::Document getTriviaResponseJS(SleepyDiscord::Response _msg);
 	rapidjson::Document updateTriviaSource(std::string source);
 	rapidjson::Document getTriviaSources();
