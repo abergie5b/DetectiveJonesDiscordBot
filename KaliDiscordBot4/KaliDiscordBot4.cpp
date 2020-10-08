@@ -1,102 +1,6 @@
 ﻿#include "KaliDiscordBot4.h"
+#include "KaliCommand.h"
 
-std::string formatMultiLineChannelText(const std::string& msg, char delim)
-{
-	constexpr char start[] = "```\n";
-	constexpr char theEnd[] = "```";
-	//estimate length
-	std::size_t length = strlen(start) + strlen(theEnd);
-	for (std::string s : split(msg, delim))
-	{
-		length += s.size();
-		length += 2; // ' ' and '\n'
-	}
-	
-	std::string output;
-	output.reserve(length);
-	output += start;
-	for (std::string s : split(msg, delim))
-	{
-		output += s;
-		output += ' ';
-		output += '\n';
-	}
-	output += theEnd;
-	return output;
-}
-
-std::string formatChannelText(const std::string& s)
-{
-	constexpr char start[] = "```\n";
-	constexpr char theEnd[] = "```";
-	//estimate length
-	std::size_t length = strlen(start) + strlen(theEnd);
-	length += s.size();
-	length += 2; // ' ' and '\n'
-	
-	std::string output;
-	output.reserve(length);
-	output += start;
-	output += s;
-	output += ' ';
-	output += '\n';
-	output += theEnd;
-	return output;
-}
-
-std::vector<std::string> split(const std::string& s, char delim)
-{
-	std::stringstream ss(s);
-	std::string item;
-	std::vector<std::string> elems;
-	while (std::getline(ss, item, delim)) {
-		elems.push_back(std::move(item));
-	}
-	return elems;
-}
-
-std::queue<std::string> split_params(const std::string& source) {
-	std::stringstream ss(source);
-	std::string item;
-	std::queue<std::string> target;
-	while (std::getline(ss, item, ' '))
-		if (!item.empty())
-			target.push(item);
-	return target;
-}
-
-std::string unravel(std::queue<std::string> queue)
-{
-	std::string target = "";
-	while (!queue.empty())
-	{
-		target += " " + queue.front();
-		queue.pop();
-	}
-	return target;
-}
-
-namespace KaliCommand {
-	using Verb = std::function<
-		void(
-			KaliDiscordBot&,
-			SleepyDiscord::Message&,
-			std::queue<std::string>&
-		)
-	>;
-	struct KaliCommand {
-		std::string name;
-		std::string desc;
-		std::vector<std::string> params;
-		Verb verb;
-	};
-	using MappedCommands = std::map<std::string, KaliCommand>;
-	using MappedCommand = MappedCommands::value_type;
-	static MappedCommands all;
-	static void addCommand(KaliCommand command) {
-		all.emplace(command.name, command);
-	}
-}
 
 KaliDiscordBot::KaliDiscordBot(std::string token, const char numThreads)
 	: SleepyDiscord::DiscordClient(token, numThreads)
@@ -156,10 +60,7 @@ void KaliDiscordBot::onMessage(SleepyDiscord::Message message) {
 		KaliCommand::MappedCommands::iterator foundCommand = KaliCommand::all.find(parameters.front());
 		if (foundCommand == KaliCommand::all.end()) {
 
-			SleepyDiscord::Response response = getChatBotMessage(unravel(parameters));
-			rapidjson::Document doc;
-			const char* text = response.text.c_str();
-			doc.Parse(text);
+			rapidjson::Document doc = getChatBotMessage(unravel(parameters));
 			rapidjson::Value& msg = doc["response"];
 			sendMessage(message.channelID, msg.GetString(), SleepyDiscord::Async);
 			return;
@@ -179,7 +80,7 @@ void KaliDiscordBot::onMessage(SleepyDiscord::Message message) {
 	}
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaServerResponse(std::string js)
+rapidjson::Document KaliDiscordBot::getTriviaServerResponse(std::string js)
 {
 	SleepyDiscord::Session session;
 	session.setUrl("http://127.0.0.1:5000/trivia");
@@ -189,10 +90,10 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaServerResponse(std::string js)
 	header.push_back({ "Content-Length", std::to_string(js.length()) });
 	session.setHeader(header);
 	SleepyDiscord::Response response = session.request(SleepyDiscord::Post);
-	return response;
+	return getTriviaResponseJS(response);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaQuestion(std::string category)
+rapidjson::Document KaliDiscordBot::getTriviaQuestion(std::string category)
 {
 	category = "\"" + category + "\"";
 	std::string js = SleepyDiscord::json::createJSON({
@@ -201,7 +102,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaQuestion(std::string category)
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaCategories(std::string source)
+rapidjson::Document KaliDiscordBot::getTriviaCategories(std::string source)
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"categories", "\"" + source + "\""}
@@ -209,7 +110,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaCategories(std::string source)
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaChoices()
+rapidjson::Document KaliDiscordBot::getTriviaChoices()
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"choices", "\"True\""}
@@ -217,7 +118,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaChoices()
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::setTriviaDifficulty(std::string difficulty)
+rapidjson::Document KaliDiscordBot::setTriviaDifficulty(std::string difficulty)
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"difficulty", "\"" + difficulty + "\""}
@@ -225,7 +126,7 @@ SleepyDiscord::Response KaliDiscordBot::setTriviaDifficulty(std::string difficul
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaGiveUpResponse()
+rapidjson::Document KaliDiscordBot::getTriviaGiveUpResponse()
 {
 	return getTriviaServerResponse(
 		SleepyDiscord::json::createJSON({
@@ -234,7 +135,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaGiveUpResponse()
 	);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getCurrentTriviaQuestion()
+rapidjson::Document KaliDiscordBot::getCurrentTriviaQuestion()
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"question", "\"True\""}
@@ -242,15 +143,15 @@ SleepyDiscord::Response KaliDiscordBot::getCurrentTriviaQuestion()
 	return getTriviaServerResponse(js);
 }
 
-rapidjson::Value& KaliDiscordBot::getTriviaResponseJS(SleepyDiscord::Response _msg, const char* field)
+rapidjson::Document KaliDiscordBot::getTriviaResponseJS(SleepyDiscord::Response _msg)
 {
 	rapidjson::Document doc;
 	const char* text = _msg.text.c_str();
 	doc.Parse(text);
-	return doc[field];
+	return doc;
 }
 
-SleepyDiscord::Response KaliDiscordBot::updateTriviaSource(std::string source)
+rapidjson::Document KaliDiscordBot::updateTriviaSource(std::string source)
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"source", "\"" + source + "\""}
@@ -258,7 +159,7 @@ SleepyDiscord::Response KaliDiscordBot::updateTriviaSource(std::string source)
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaSources()
+rapidjson::Document KaliDiscordBot::getTriviaSources()
 {
 	std::string js = SleepyDiscord::json::createJSON({
 		{"sources", "\"True\""}
@@ -266,7 +167,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaSources()
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getTriviaScores(std::string username)
+rapidjson::Document KaliDiscordBot::getTriviaScores(std::string username)
 {
 	std::string js = "";
 	if (username != "")
@@ -287,7 +188,7 @@ SleepyDiscord::Response KaliDiscordBot::getTriviaScores(std::string username)
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::sendTriviaAnswer(std::string username, std::string answer)
+rapidjson::Document KaliDiscordBot::sendTriviaAnswer(std::string username, std::string answer)
 {
 	username = "\"" + username + "\"";
 	answer = "\"" + answer + "\"";
@@ -298,7 +199,7 @@ SleepyDiscord::Response KaliDiscordBot::sendTriviaAnswer(std::string username, s
 	return getTriviaServerResponse(js);
 }
 
-SleepyDiscord::Response KaliDiscordBot::getChatBotMessage(std::string words)
+rapidjson::Document KaliDiscordBot::getChatBotMessage(std::string words)
 { 
 	SleepyDiscord::Session session;
 	session.setUrl("http://127.0.0.1:5000/chat");
@@ -312,7 +213,7 @@ SleepyDiscord::Response KaliDiscordBot::getChatBotMessage(std::string words)
 	header.push_back({ "Content-Length", std::to_string(js.length()) });
 	session.setHeader(header);
 	SleepyDiscord::Response response = session.request(SleepyDiscord::Post);
-	return response;
+	return getTriviaResponseJS(response);
 }
 
 
@@ -375,15 +276,9 @@ void addCommands()
 					command = params.front();
 					params.pop();
 				}
-				SleepyDiscord::Response response = client.getTriviaQuestion(command);
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getTriviaQuestion(command);
 				rapidjson::Value& msg = doc["response"];
-
-				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
+				client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString(), ';'), SleepyDiscord::Async);
 			}
 		});
 	}
@@ -396,13 +291,8 @@ void addCommands()
 				SleepyDiscord::Message& message,
 				std::queue<std::string>& params
 			) {
-				SleepyDiscord::Response response = client.getCurrentTriviaQuestion();
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getCurrentTriviaQuestion();
 				rapidjson::Value& msg = doc["response"];
-
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
 		});
@@ -423,12 +313,7 @@ void addCommands()
 					source = "current";
 				else
 					source = params.front();
-				SleepyDiscord::Response response = client.updateTriviaSource(source);
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.updateTriviaSource(source);
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
@@ -444,11 +329,7 @@ void addCommands()
 				SleepyDiscord::Message& message,
 				std::queue<std::string>& params
 			) {
-				SleepyDiscord::Response response = client.getTriviaGiveUpResponse();
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getTriviaGiveUpResponse();
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
@@ -467,11 +348,7 @@ void addCommands()
 				params.pop();
 				//
 				std::string answer = unravel(params);
-				SleepyDiscord::Response response = client.sendTriviaAnswer(message.author.username, answer);
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.sendTriviaAnswer(message.author.username, answer);
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
@@ -487,11 +364,7 @@ void addCommands()
 				std::queue<std::string>& params
 			) {
 				std::string answer = unravel(params);
-				SleepyDiscord::Response response = client.getTriviaChoices();
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getTriviaChoices();
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString(), ';'), SleepyDiscord::Async);
 			}
@@ -507,11 +380,7 @@ void addCommands()
 				std::queue<std::string>& params
 			) {
 				std::string answer = unravel(params);
-				SleepyDiscord::Response response = client.getTriviaScores(message.author.username);
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getTriviaScores(message.author.username);
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
@@ -526,16 +395,13 @@ void addCommands()
 				SleepyDiscord::Message& message,
 				std::queue<std::string>& params
 			) {
-				SleepyDiscord::Response response = client.getTriviaSources();
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.getTriviaSources();
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
 		});
 	}
+
 	for (std::string s: {"!d", "!difficulty"})
 	{
 		KaliCommand::addCommand({
@@ -548,11 +414,7 @@ void addCommands()
 					return;
 				std::string difficulty = params.front();
 				params.pop();
-				SleepyDiscord::Response response = client.setTriviaDifficulty(difficulty);
-				//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-				rapidjson::Document doc;
-				const char* text = response.text.c_str();
-				doc.Parse(text);
+				rapidjson::Document doc = client.setTriviaDifficulty(difficulty);
 				rapidjson::Value& msg = doc["response"];
 				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
 			}
@@ -572,11 +434,7 @@ void addCommands()
 				source = "current";
 			else
 				source = params.front();
-			SleepyDiscord::Response response = client.getTriviaCategories(source);
-			//rapidjson::Value& msg = client.getTriviaResponseJS(response, "response");
-			rapidjson::Document doc;
-			const char* text = response.text.c_str();
-			doc.Parse(text);
+			rapidjson::Document doc = client.getTriviaCategories(source);
 			rapidjson::Value& msg = doc["response"];
 			client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString()), SleepyDiscord::Async);
 		}
