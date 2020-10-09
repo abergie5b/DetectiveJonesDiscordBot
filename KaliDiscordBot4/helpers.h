@@ -1,4 +1,5 @@
 #include <string>
+#include <string.h>
 #include <vector>
 #include <queue>
 #include <sstream>

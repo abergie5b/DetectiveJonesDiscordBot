@@ -301,7 +301,7 @@ void addCommands()
 			) {
 				rapidjson::Document doc = client.getCurrentTriviaQuestion();
 				rapidjson::Value& msg = doc["response"];
-				client.sendMessage(message.channelID, formatChannelText(msg.GetString()), SleepyDiscord::Async);
+				client.sendMessage(message.channelID, formatMultiLineChannelText(msg.GetString(), ';'), SleepyDiscord::Async);
 			}
 		});
 	}
