@@ -41,17 +41,18 @@ namespace BlackJack
 
 	void Dealer::RemovePlayer(Player& player)
 	{
-		Player* playerToRemove = nullptr;
-		for (Player& p : players)
+		std::vector<Player>::iterator playerToRemove = players.begin();
+		while (playerToRemove != players.end())
 		{
-			if (p.Name == player.Name)
+			if (playerToRemove->Name == player.Name)
 			{
-				playerToRemove = &p;
+				players.erase(playerToRemove);
+				break;
 			}
-		}
-		if (playerToRemove != nullptr)
-		{
-			std::remove(players.begin(), players.end(), *playerToRemove);
+			else
+			{
+				playerToRemove++;
+			}
 		}
 	}
 

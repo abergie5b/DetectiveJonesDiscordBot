@@ -41,7 +41,12 @@ public:
 	std::string GetGameInfoStr(std::string channelId);
 	bool AllPlayersHaveAnted(std::string channelId);
 	void DealHands(std::string channelId);
-	void EndGame(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channalId);
+	void EndGame(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
+	void PlayDealerTurn(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
+	void StartNextTurn(BlackJack::Player* player, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
+	bool CheckIfPlayerBusts(BlackJack::Player* player, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
+	void StartGame(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
+	void Continue(BlackJack::Game* game, BlackJack::Player* nPlayer, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelId);
 
 	void QueuePlayerToRemove(std::string channelId, BlackJack::Player player);
 	void RemovePlayersFromGame(BlackJack::Game* game, std::string channelId, SleepyDiscord::DiscordClient& client);

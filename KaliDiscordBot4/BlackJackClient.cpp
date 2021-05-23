@@ -180,6 +180,98 @@ void BlackJackClient::EndGame(BlackJack::Game* game, SleepyDiscord::DiscordClien
 		dealer->deck.Collect();
 	game->IsPlaying = false;
 	this->RemovePlayersFromGame(game, channelId.string(), client);
+	client.sendMessage(channelId, formatMultiLineChannelText(BlackJackClient::GetRoundOverStr(game)), SleepyDiscord::Async);
+}
+
+
+void BlackJackClient::PlayDealerTurn(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelID)
+{
+	client.sendMessage(channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	while (game->dealer.ShouldHit())
+	{
+		game->dealer.DealHit(game->dealer);
+		client.sendMessage(channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+		if (game->dealer.IsBusted())
+		{
+			client.sendMessage(channelID, formatMultiLineChannelText(BlackJackClient::GetDealerBustsStr()), SleepyDiscord::Async);
+			break;
+		}
+	}
+}
+
+void BlackJackClient::StartNextTurn(BlackJack::Player* nPlayer, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelID)
+{
+	nPlayer->HasCurrentTurn = true;
+	client.sendMessage(channelID, BlackJackClient::GetHandStr(*nPlayer), SleepyDiscord::Async);
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	client.sendMessage(channelID, BlackJackClient::GetPlayerStartTurnStr(*nPlayer), SleepyDiscord::Async);
+}
+
+bool BlackJackClient::CheckIfPlayerBusts(BlackJack::Player* player, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelID)
+{
+	if (player->IsBusted())
+	{
+		player->HasCurrentTurn = false;
+		client.sendMessage(channelID, formatMultiLineChannelText(BlackJackClient::GetPlayerBustsStr(*player)), SleepyDiscord::Async);
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		return true;
+	}
+	return false;
+}
+
+void BlackJackClient::StartGame(BlackJack::Game* game, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelID)
+{
+	game->IsPlaying = true;
+
+	client.sendMessage(channelID, formatMultiLineChannelText(BlackJackClient::GAME_START_STR), SleepyDiscord::Async);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	this->DealHands(channelID.string());
+	std::vector<BlackJack::Player> players = game->GetPlayers();
+	for (int x=0; x<players.size(); x++)
+	{
+		BlackJack::Player player = players[x];
+		std::string handStr = BlackJackClient::GetHandStr(player);
+		client.sendMessage(channelID, handStr, SleepyDiscord::Async);
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	std::vector<BlackJack::Card> dHand = game->dealer.GetHand().GetCards();
+	std::stringstream ss;
+	ss << "`DEALER`: " << BlackJack::Cards.at(dHand[0].GetName()) << " of " << BlackJack::Suites.at(dHand[0].GetSuite());
+	ss << " and ||";
+	ss << "fok off hacker||";
+	client.sendMessage(channelID, ss.str(), SleepyDiscord::Async);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	game->GetPlayer(players[0].Name)->HasCurrentTurn = true;
+	client.sendMessage(channelID, BlackJackClient::GetPlayerStartTurnStr(players[0]), SleepyDiscord::Async);
+}
+
+
+void BlackJackClient::Continue(BlackJack::Game* game, BlackJack::Player* nPlayer, SleepyDiscord::DiscordClient& client, SleepyDiscord::Snowflake<SleepyDiscord::Channel> channelID)
+{
+	if (nPlayer->Name != "Dealer")
+	{
+		this->StartNextTurn(nPlayer, client, channelID);
+		return;
+	}
+	else if (!game->dealer.AllPlayersAreBusted())
+	{
+		this->PlayDealerTurn(game, client, channelID);
+		this->EndGame(game, client, channelID);
+		return;
+	}
+	else
+	{
+		this->EndGame(game, client, channelID);
+	}
 }
 
 void BlackJackClient::DealHands(std::string channelId)
@@ -258,7 +350,6 @@ std::string BlackJackClient::CreateGame(std::string channelId, BlackJack::Player
 {
 	if (vGames.find(channelId) == vGames.end())
 	{
-		player.SetAnte(0); // HACKS
 		BlackJack::Game game = BlackJack::Game(player);
 		game.SetMinAnte(100);
 		vGames.emplace(channelId, game);

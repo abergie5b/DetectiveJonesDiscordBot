@@ -30,7 +30,6 @@ std::string KaliDiscordBot::JoinBJGame(const std::string& channelId, const std::
 			}
 		}
 		BlackJack::Player player = BlackJack::Player(userId);
-		player.SetAnte(0); // HACKS
 		game->AddPlayer(player);
 		ss << "Added " << userId << " to the game";
 		return ss.str();
@@ -311,11 +310,13 @@ void addCommands()
 			SleepyDiscord::Message& message,
 			std::queue<std::string>&
 		) {
-			constexpr char start[] = "Here's a list of all commands (trivia commands start with '!'):```\n";
+			constexpr char start[] = "Here's a list of all commands (type \"$help\" for blackjack commands):```\n";
 			constexpr char theEnd[] = "```";
 			//estimate length
 			std::size_t length = strlen(start) + strlen(theEnd);
 			for (KaliCommand::MappedCommand& command : KaliCommand::all) {
+				if (command.first.front() == '$')
+					continue;
 				length += command.first.size();
 				length += 2; // ' ' and '\n'
 				for (std::string& parmaName : command.second.params) {
@@ -328,6 +329,51 @@ void addCommands()
 			output.reserve(length);
 			output += start;
 			for (KaliCommand::MappedCommand& command : KaliCommand::all) {
+				if (command.first.front() == '$')
+					continue;
+				output += command.first;
+				output += ' ';
+				for (std::string& parmaName : command.second.params) {
+					output += '<';
+					output += parmaName;
+					output += "> ";
+				}
+				output += "\n\t: " + command.second.desc;
+				output += '\n';
+			}
+			output += theEnd;
+			client.sendMessage(message.channelID, output, SleepyDiscord::Async);
+		}
+	});
+
+
+	KaliCommand::addCommand({
+		"$help", "displays this message", {}, [](
+			KaliDiscordBot& client,
+			SleepyDiscord::Message& message,
+			std::queue<std::string>&
+		) {
+			constexpr char start[] = "Here's a list of blackjack commands:```\n";
+			constexpr char theEnd[] = "```";
+			//estimate length
+			std::size_t length = strlen(start) + strlen(theEnd);
+			for (KaliCommand::MappedCommand& command : KaliCommand::all) {
+				if (command.first.front() != '$')
+					continue;
+				length += command.first.size();
+				length += 2; // ' ' and '\n'
+				for (std::string& parmaName : command.second.params) {
+					length += 2; // '<' and '> '
+					length += parmaName.size();
+				}
+			}
+			
+			std::string output;
+			output.reserve(length);
+			output += start;
+			for (KaliCommand::MappedCommand& command : KaliCommand::all) {
+				if (command.first.front() != '$')
+					continue;
 				output += command.first;
 				output += ' ';
 				for (std::string& parmaName : command.second.params) {
@@ -384,7 +430,9 @@ void addCommands()
 				BlackJack::Game* game = client.bjClient.GetGame(message.channelID.string());
 				if (!game)
 				{
-					client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GAME_DOES_NOT_EXIST_STR), SleepyDiscord::Async);
+					client.sendMessage(message.channelID, 
+						formatMultiLineChannelText(BlackJackClient::GAME_DOES_NOT_EXIST_STR), 
+						SleepyDiscord::Async);
 					return;
 				}
 				if (game->IsPlaying)
@@ -397,7 +445,9 @@ void addCommands()
 				//
 				if (params.empty())
 				{
-					client.sendMessage(message.channelID, formatMultiLineChannelText("How much would you like to bet? ($a 100)"), SleepyDiscord::Async);
+					client.sendMessage(message.channelID, 
+						formatMultiLineChannelText("How much would you like to bet? ($a 100)"), 
+						SleepyDiscord::Async);
 					return;
 				}
 				const std::string command = params.front();
@@ -410,33 +460,7 @@ void addCommands()
 
 				if (client.bjClient.AllPlayersHaveAnted(message.channelID.string()))
 				{
-					game->IsPlaying = true;
-
-					client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GAME_START_STR), SleepyDiscord::Async);
-
-					std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-					client.bjClient.DealHands(message.channelID.string());
-					std::vector<BlackJack::Player> players = game->GetPlayers();
-					for (int x=0; x<players.size(); x++)
-					{
-						BlackJack::Player player = players[x];
-						std::string handStr = BlackJackClient::GetHandStr(player);
-						client.sendMessage(message.channelID, handStr, SleepyDiscord::Async);
-					}
-					std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-					std::vector<BlackJack::Card> dHand = game->dealer.GetHand().GetCards();
-					std::stringstream ss;
-					ss << "`DEALER`: " << BlackJack::Cards.at(dHand[0].GetName()) << " of " << BlackJack::Suites.at(dHand[0].GetSuite());
-					ss << " and ||";
-					ss << "fok off hacker||";
-					client.sendMessage(message.channelID, ss.str(), SleepyDiscord::Async);
-
-					std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-					game->GetPlayer(players[0].Name)->HasCurrentTurn = true;
-					client.sendMessage(message.channelID, BlackJackClient::GetPlayerStartTurnStr(players[0]), SleepyDiscord::Async);
+					client.bjClient.StartGame(game, client, message.channelID);
 				}
 
 			}
@@ -470,43 +494,10 @@ void addCommands()
 				client.sendMessage(message.channelID, BlackJackClient::GetHandStr(*player), SleepyDiscord::Async);
 				std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-				if (player->IsBusted())
+				if (client.bjClient.CheckIfPlayerBusts(player, client, message.channelID))
 				{
-					player->HasCurrentTurn = false;
-					client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetPlayerBustsStr(*player)), SleepyDiscord::Async);
-					std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
 					BlackJack::Player* nPlayer = client.bjClient.GetNextPlayer(game, player);
-					if (nPlayer->Name != "Dealer")
-					{
-						nPlayer->HasCurrentTurn = true;
-						client.sendMessage(message.channelID, BlackJackClient::GetPlayerStartTurnStr(*nPlayer), SleepyDiscord::Async);
-					}
-					else if (!game->dealer.AllPlayersAreBusted())
-					{
-						while (game->dealer.ShouldHit())
-						{
-							client.sendMessage(message.channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
-							std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-							game->dealer.DealHit(game->dealer);
-							client.sendMessage(message.channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
-							std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-							if (game->dealer.IsBusted())
-							{
-								client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetDealerBustsStr()), SleepyDiscord::Async);
-								break;
-							}
-						}
-						client.bjClient.EndGame(game, client, message.channelID);
-						client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetRoundOverStr(game)), SleepyDiscord::Async);
-					}
-					else // end game
-					{
-						client.bjClient.EndGame(game, client, message.channelID);
-						client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetRoundOverStr(game)), SleepyDiscord::Async);
-					}
+					client.bjClient.Continue(game, nPlayer, client, message.channelID);
 				}
 
 			}
@@ -535,37 +526,12 @@ void addCommands()
 					return;
 				}
 
-				client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetPlayerPassStr(*player)), SleepyDiscord::Async);
 				player->HasCurrentTurn = false;
+				client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetPlayerPassStr(*player)), SleepyDiscord::Async);
 				std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 				BlackJack::Player* nPlayer = client.bjClient.GetNextPlayer(game, player);
-				if (nPlayer->Name != "Dealer")
-				{
-					nPlayer->HasCurrentTurn = true;
-					client.sendMessage(message.channelID, BlackJackClient::GetPlayerStartTurnStr(*nPlayer), SleepyDiscord::Async);
-				}
-				else if (!game->dealer.AllPlayersAreBusted())
-				{
-
-					client.sendMessage(message.channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
-					std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-					while (game->dealer.ShouldHit())
-					{
-						game->dealer.DealHit(game->dealer);
-						client.sendMessage(message.channelID, BlackJackClient::GetHandStr(game->dealer), SleepyDiscord::Async);
-						std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-						if (game->dealer.IsBusted())
-						{
-							client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetDealerBustsStr()), SleepyDiscord::Async);
-							break;
-						}
-					}
-					client.bjClient.EndGame(game, client, message.channelID);
-					client.sendMessage(message.channelID, formatMultiLineChannelText(BlackJackClient::GetRoundOverStr(game)), SleepyDiscord::Async);
-				}
+				client.bjClient.Continue(game, nPlayer, client, message.channelID);
 			}
 		});
 	}
