@@ -6,6 +6,7 @@
 #include <curl/curl.h>
 #include <string.h>
 
+#include "BlackJackClient.h"
 #include "helpers.h"
 
 class KaliDiscordBot : public SleepyDiscord::DiscordClient
@@ -27,5 +28,14 @@ public:
 	rapidjson::Document getTriviaScores(std::string username = "");
 	rapidjson::Document sendTriviaAnswer(std::string username, std::string answer);
 	rapidjson::Document getChatBotMessage(std::string words);
+
+	BlackJackClient bjClient;
+	std::string CreateBJGame(const std::string& channelId, const std::string& userId);
+	std::string MakeAnte(BlackJack::Game* game, const std::string& userId, uint32_t ante);
+	std::string JoinBJGame(const std::string& channelId, const std::string& userId);
+	std::string LeaveBJGame(const std::string& channelId, const std::string& userId);
+	std::string TakeBJHit(const std::string& channelId, const std::string& userId);
+	std::string StayBJ(const std::string& channelId, const std::string& userId);
+	std::string GetBJCurrentGameInfo(const std::string& channelId);
 
 };
