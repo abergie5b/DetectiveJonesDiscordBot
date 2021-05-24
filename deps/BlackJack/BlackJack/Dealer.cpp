@@ -118,7 +118,7 @@ namespace BlackJack
 	{
 		DealHands();
 		std::cout << "Dealer" << std::endl;
-		Hand.FlipOne();
+		hand.FlipOne();
 		for (Player& player : players)
 			PlayTurn(player);
 
@@ -136,13 +136,13 @@ namespace BlackJack
 			player.SetAnte(0);
 		}
 		DiscardHand();
-		if (Hand.GetCards().size() <= DECK_SIZE/2)
+		if (hand.GetCards().size() <= DECK_SIZE/2)
 			deck.Collect();
 	};
 
 	bool Dealer::ShouldHit()
 	{
-		return Hand.GetDealerValue() <= 16;
+		return hand.GetDealerValue() <= 16;
 	};
 
 	void Dealer::DealHands()
@@ -166,12 +166,12 @@ namespace BlackJack
 
 	bool Dealer::WinsAgainst(Player& player)
 	{
-		return (!IsBusted() && (player.IsBusted() || player.GetHandValue() < Hand.GetDealerValue()));
+		return (!IsBusted() && (player.IsBusted() || player.GetHandValue() < hand.GetDealerValue()));
 	}
 
 	bool Dealer::LosesAgainst(Player& player)
 	{
-		return (IsBusted() || (!player.IsBusted() && player.GetHandValue() > Hand.GetDealerValue()));
+		return (IsBusted() || (!player.IsBusted() && player.GetHandValue() > hand.GetDealerValue()));
 	}
 
 	void Dealer::CollectOrDistributeAntes()

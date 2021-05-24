@@ -38,6 +38,7 @@ public:
 	BlackJack::Player* GetNextPlayer(BlackJack::Game* game, BlackJack::Player* player);
 	std::string CreateGame(std::string channelId, BlackJack::Player player);
 	BlackJack::Game* GetGame(std::string channelId);
+	std::map<std::string, BlackJack::Game> GetGames();
 	std::string GetGameInfoStr(std::string channelId);
 	bool AllPlayersHaveAnted(std::string channelId);
 	void DealHands(std::string channelId);

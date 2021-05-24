@@ -1,5 +1,6 @@
 #include <random>
 #include <time.h>
+#include <algorithm>
 
 #include "Deck.h"
 
@@ -30,7 +31,9 @@ namespace BlackJack
 
 	void Deck::Shuffle()
 	{
-		std::random_shuffle(cards.begin(), cards.end());
+		std::random_device rd;
+		std::mt19937 g(rd());
+		std::shuffle(cards.begin(), cards.end(), g);
 	};
 
 	void Deck::Collect()

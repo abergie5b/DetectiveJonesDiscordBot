@@ -176,7 +176,7 @@ void BlackJackClient::EndGame(BlackJack::Game* game, SleepyDiscord::DiscordClien
 		player.SetAnte(0);
 	}
 	dealer->DiscardHand();
-	if (dealer->Hand.GetCards().size() <= BlackJack::DECK_SIZE / 2)
+	if (dealer->hand.GetCards().size() <= BlackJack::DECK_SIZE / 2)
 		dealer->deck.Collect();
 	game->IsPlaying = false;
 	this->RemovePlayersFromGame(game, channelId.string(), client);
@@ -364,3 +364,8 @@ std::string BlackJackClient::CreateGame(std::string channelId, BlackJack::Player
 	return "A BlackJack game already exists in this channel";
 }
 
+
+std::map<std::string, BlackJack::Game> BlackJackClient::GetGames()
+{
+	return vGames;
+}

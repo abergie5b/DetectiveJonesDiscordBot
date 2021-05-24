@@ -7,7 +7,7 @@ namespace BlackJack
 
 	Player::Player(std::string name)
 		: Name(name), 
-		  Hand(BlackJack::Hand()), 
+		  hand(BlackJack::Hand()), 
 		  Ante(0), 
 		  Cash(1000),
 		  HasCurrentTurn(false)
@@ -16,17 +16,17 @@ namespace BlackJack
 
 	void Player::PrintHand()
 	{
-		Hand.Print();
+		hand.Print();
 	}
 
 	bool Player::IsBusted()
 	{
-		return Hand.IsBusted();
+		return hand.IsBusted();
 	}
 
 	Hand Player::GetHand()
 	{
-		return Hand;
+		return hand;
 	}
 
 	bool Player::WillHit()
@@ -39,17 +39,17 @@ namespace BlackJack
 
 	void Player::TakeCard(Card& card)
 	{
-		Hand.push_back(card);
+		hand.push_back(card);
 	};
 
 	uint8_t Player::GetHandValue()
 	{
-		return Hand.GetValue();
+		return hand.GetValue();
 	}
 
 	void Player::DiscardHand()
 	{
-		this->Hand.Discard();
+		this->hand.Discard();
 	};
 
 	void Player::SetAnte(uint32_t ante)

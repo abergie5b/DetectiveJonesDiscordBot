@@ -5,7 +5,8 @@
 
 KaliDiscordBot::KaliDiscordBot(std::string token, const char numThreads)
 	: SleepyDiscord::DiscordClient(token, numThreads),
-	  bjClient(BlackJackClient())
+	  bjClient(BlackJackClient()),
+	  bjUserTimeoutList(std::vector<std::string>())
 {
 }
 
@@ -35,6 +36,34 @@ std::string KaliDiscordBot::JoinBJGame(const std::string& channelId, const std::
 		return ss.str();
 	}
 	return BlackJackClient::GAME_DOES_NOT_EXIST_STR;
+}
+
+void KaliDiscordBot::bjRemoveUsersForInactivity()
+{
+	if (bjUserTimeoutList.empty())
+	{
+		return;
+	}
+
+	std::map<std::string, BlackJack::Game> games = this->bjClient.GetGames();
+	auto it = games.begin();
+	while (it != games.end())
+	{
+		std::vector<BlackJack::Player> players = it->second.GetPlayers();
+		std::vector<std::string> userIds;
+		for (BlackJack::Player player : players)
+		{
+			for (std::string userId : bjUserTimeoutList)
+			{
+				if (std::find(userIds.begin(), userIds.end(), player.Name) != userIds.end())
+				{
+					bjClient.QueuePlayerToRemove(it->first, player);
+					bjClient.RemovePlayersFromGame(&(it->second), it->first, *this);
+				}
+			}
+		}
+		it++;
+	}
 }
 
 std::string KaliDiscordBot::MakeAnte(BlackJack::Game* game, const std::string& userId, const uint32_t ante)

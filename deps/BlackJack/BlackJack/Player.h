@@ -30,7 +30,7 @@ namespace BlackJack
 
 		bool HasCurrentTurn;
 		std::string Name;
-		Hand Hand;
+		Hand hand;
 		uint32_t Ante;
 		uint32_t Cash;
 	};

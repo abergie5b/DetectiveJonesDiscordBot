@@ -30,6 +30,8 @@ public:
 	rapidjson::Document getChatBotMessage(std::string words);
 
 	BlackJackClient bjClient;
+	std::vector<std::string> bjUserTimeoutList;
+	void bjRemoveUsersForInactivity();
 	std::string CreateBJGame(const std::string& channelId, const std::string& userId);
 	std::string MakeAnte(BlackJack::Game* game, const std::string& userId, uint32_t ante);
 	std::string JoinBJGame(const std::string& channelId, const std::string& userId);
